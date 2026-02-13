@@ -1,9 +1,5 @@
 lexer grammar CoolLexer;
 
-@header {
-package ua.lpnu.cool;
-}
-
 // Ключові слова (нечутливі до регістру, окрім true/false)
 CLASS       : [cC][lL][aA][sS][sS] ;
 ELSE        : [eE][lL][sS][eE] ;
