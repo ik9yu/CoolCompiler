@@ -36,12 +36,15 @@ public class CoolIDE extends JFrame {
         JToolBar toolBar = new JToolBar();
         JButton lexerButton = new JButton("1. Run Lexer");
         JButton parserButton = new JButton("2. Run Parser (Build Tree)");
+        JButton semanticButton = new JButton("3. Run Semantic Analysis"); // Нова кнопка
 
         lexerButton.addActionListener(e -> runLexer());
         parserButton.addActionListener(e -> runParser());
+        semanticButton.addActionListener(e -> runSemantic()); // Обробник
 
         toolBar.add(lexerButton);
         toolBar.add(parserButton);
+        toolBar.add(semanticButton); // Кнопка на панелі
         add(toolBar, BorderLayout.NORTH);
 
         // Редактор коду
@@ -132,6 +135,47 @@ public class CoolIDE extends JFrame {
 
         treePanel.revalidate();
         treePanel.repaint();
+    }
+
+    private void runSemantic() {
+        errorArea.setText("Semantic analysis started...\n");
+        String code = inputArea.getText();
+
+        // 1. Побудова AST (Lexer + Parser)
+        CoolLexer lexer = new CoolLexer(CharStreams.fromString(code));
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        CoolParser parser = new CoolParser(tokens);
+
+        parser.removeErrorListeners(); // вимкнути консольні помилки
+
+        ParseTree tree = parser.program();
+
+        // Якщо є синтаксичні помилки — семантику не запускаємо
+        if (parser.getNumberOfSyntaxErrors() > 0) {
+            errorArea.append("CRITICAL: Fix syntax errors before semantic analysis!\n");
+            return;
+        }
+
+        // 2. Семантичний аналіз
+        SemanticAnalyzer analyzer = new SemanticAnalyzer();
+        analyzer.visit(tree);
+
+        List<String> errors = analyzer.getErrors();
+        List<String> warnings = analyzer.getWarnings();
+
+        // 3. Вивід результатів
+        if (errors.isEmpty() && warnings.isEmpty()) {
+            errorArea.append("✓ Analysis Passed! Clean code.\n");
+        } else {
+            if (!errors.isEmpty()) {
+                errorArea.append("✕ ERRORS (" + errors.size() + "):\n");
+                for (String err : errors) errorArea.append(err + "\n");
+            }
+            if (!warnings.isEmpty()) {
+                errorArea.append("\n⚠ WARNINGS (" + warnings.size() + "):\n");
+                for (String w : warnings) errorArea.append(w + "\n");
+            }
+        }
     }
 
     // Listener для виводу помилок
