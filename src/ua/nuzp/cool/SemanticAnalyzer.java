@@ -110,6 +110,24 @@ public class SemanticAnalyzer extends CoolParserBaseVisitor<String> {
         return ctx.type.getText();
     }
 
+    // Реєстрація атрибутів класу в таблиці символів
+    public String visitAttribute(CoolParser.AttributeContext ctx) {
+        String name = ctx.name.getText();
+        String type = ctx.type.getText();
+
+        if (currentScope.resolve(name) != null) {
+            error(ctx.start.getLine(), "Attribute '" + name + "' is already defined.");
+        } else {
+            currentScope.define(new Symbol(name, type, SymbolType.VARIABLE));
+        }
+
+        if (ctx.value != null) {
+            visit(ctx.value);
+        }
+
+        return type;
+    }
+
     @Override
     public String visitMethod(CoolParser.MethodContext ctx) {
         String mName = ctx.name.getText();
