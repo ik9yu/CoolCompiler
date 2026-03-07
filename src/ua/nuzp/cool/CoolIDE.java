@@ -15,8 +15,10 @@ public class CoolIDE extends JFrame {
     // UI компоненти
     private JTextArea inputArea;
     private JTextArea errorArea;
+    private JTextArea codeOutputArea; // Поле для виводу згенерованого коду
     private DefaultTableModel tokensModel;
     private JPanel treePanel;
+    private JTabbedPane tabbedPane; // Вкладки для результатів
 
     public CoolIDE() {
         super("Cool Compiler IDE");
@@ -36,15 +38,18 @@ public class CoolIDE extends JFrame {
         JToolBar toolBar = new JToolBar();
         JButton lexerButton = new JButton("1. Run Lexer");
         JButton parserButton = new JButton("2. Run Parser (Build Tree)");
-        JButton semanticButton = new JButton("3. Run Semantic Analysis"); // Нова кнопка
+        JButton semanticButton = new JButton("3. Run Semantic Analysis");
+        JButton codegenButton = new JButton("4. Generate Code"); // Нова кнопка
 
         lexerButton.addActionListener(e -> runLexer());
         parserButton.addActionListener(e -> runParser());
-        semanticButton.addActionListener(e -> runSemantic()); // Обробник
+        semanticButton.addActionListener(e -> runSemantic());
+        codegenButton.addActionListener(e -> runCodeGeneration()); // Обробник
 
         toolBar.add(lexerButton);
         toolBar.add(parserButton);
-        toolBar.add(semanticButton); // Кнопка на панелі
+        toolBar.add(semanticButton);
+        toolBar.add(codegenButton); // Кнопка на панелі
         add(toolBar, BorderLayout.NORTH);
 
         // Редактор коду
@@ -56,7 +61,7 @@ public class CoolIDE extends JFrame {
         codeScroll.setBorder(BorderFactory.createTitledBorder("Source Code"));
 
         // Вкладки результатів
-        JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane = new JTabbedPane();
 
         // Таблиця токенів
         String[] cols = {"Token", "Value", "Pos"};
@@ -67,6 +72,13 @@ public class CoolIDE extends JFrame {
         // Панель дерева розбору
         treePanel = new JPanel(new BorderLayout());
         tabbedPane.addTab("Parse Tree (Lab 2)", new JScrollPane(treePanel));
+
+        // Генерація коду
+        codeOutputArea = new JTextArea();
+        codeOutputArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        codeOutputArea.setEditable(false); // Заборона редагувати вивід
+        JScrollPane codeScrollRes = new JScrollPane(codeOutputArea);
+        tabbedPane.addTab("Generated Code (Lab 4)", codeScrollRes);
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, codeScroll, tabbedPane);
         split.setResizeWeight(0.4);
@@ -175,6 +187,50 @@ public class CoolIDE extends JFrame {
                 errorArea.append("\n⚠ WARNINGS (" + warnings.size() + "):\n");
                 for (String w : warnings) errorArea.append(w + "\n");
             }
+        }
+    }
+
+    // Генерація коду
+    private void runCodeGeneration() {
+        errorArea.setText("Code generation started...\n");
+        codeOutputArea.setText("");
+        String code = inputArea.getText();
+
+        try {
+            // 1. Побудова AST (Lexer + Parser)
+            CoolLexer lexer = new CoolLexer(CharStreams.fromString(code));
+            CommonTokenStream tokens = new CommonTokenStream(lexer);
+            CoolParser parser = new CoolParser(tokens);
+            parser.removeErrorListeners();
+            ParseTree tree = parser.program();
+
+            if (parser.getNumberOfSyntaxErrors() > 0) {
+                errorArea.append("CRITICAL: Cannot generate code due to SYNTAX errors.\n");
+                return;
+            }
+
+            // 2. Семантичний аналіз
+            SemanticAnalyzer semantic = new SemanticAnalyzer();
+            semantic.visit(tree);
+            if (!semantic.getErrors().isEmpty()) {
+                errorArea.append("CRITICAL: Cannot generate code due to SEMANTIC errors.\n");
+                for (String err : semantic.getErrors()) errorArea.append(err + "\n");
+                return;
+            }
+
+            // 3. Генерація коду
+            CodeGenerator generator = new CodeGenerator();
+            generator.visit(tree);
+
+            // 4. Вивід результатів
+            codeOutputArea.setText(generator.getGeneratedCode());
+            errorArea.append("Code generated successfully!\n");
+
+            tabbedPane.setSelectedIndex(2);
+
+        } catch (Exception e) {
+            errorArea.append("Error during code generation: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
